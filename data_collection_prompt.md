@@ -26,6 +26,15 @@
     例如 "國內餐飲": ["麥當勞"] 而不是 "國內餐飲": "麥當勞"
 12. 輸出的 JSON 需使用 2 個空格縮排，方便閱讀與複製
 13. 如果該回饋規則沒有分等級，L1、L2、L3 直接填 null 就好
+14. doc_type 固定填以下對應值，不可以自行更改：
+
+- credit_card_profile 區塊填 "credit_card_profile"
+- benefit_scheme 區塊填 "benefit_scheme"
+- benefit_rule 區塊填 "benefit_rule"
+- welcome_offer 區塊填 "welcome_offer"
+- global_rule 區塊填 "global_rule"
+
+15. issuer 固定填「國泰世華銀行」
 
 ---
 
@@ -39,13 +48,13 @@
     "doc_type": "credit_card_profile",
     "annual_fee": {
       "primary": "string",
-      "supplementary": "string",
+      "supplementary": "string or null",
       "waiver": "string or null"
     },
     "eligibility": {
-      "age": "string",
-      "income_requirement": "string",
-      "employment": "string"
+      "age": "string or null",
+      "income_requirement": "string or null",
+      "employment": "string or null"
     },
     "base_reward": "string or null",
     "reward_unit": "string or null",
@@ -59,8 +68,8 @@
       "scheme_name": "string",
       "surface_desc": "string",
       "reward_levels": {
-        "L1": "string",
-        "L2": "string",
+        "L1": "string or null",
+        "L2": "string or null",
         "L3": "string or null"
       },
       "reward_unit": "string",
