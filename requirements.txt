@@ -1,0 +1,12 @@
+# Embedding 模型
+sentence-transformers
+torch
+
+# RAG 向量搜尋
+faiss-cpu
+langchain
+langchain-community
+langchain-huggingface
+
+# 資料處理
+numpy
