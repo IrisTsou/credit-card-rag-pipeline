@@ -223,8 +223,16 @@ def rule_to_chunks(rules: list, card_name: str, issuer: str, source_file: str) -
             text_parts.append(f"「{scheme_name}」")
         elif scheme_id:
             text_parts.append(f"（方案ID：{scheme_id}）")
+        
+        RULE_TYPE_LABEL = {
+            "include": "適用範圍說明",
+            "exclude": "排除範圍說明",
+            "條件說明": "條件說明",
+        }
+
         if rule_type:
-            text_parts.append(f"{rule_type}：")
+            label = RULE_TYPE_LABEL.get(rule_type, rule_type)
+            text_parts.append(f"{label}：")
 
         # v2：用中文標籤取代英文 key
         for key, label in KEY_LABEL_MAP.items():
