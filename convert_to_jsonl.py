@@ -1,5 +1,5 @@
 # 將 credit_card_llm_json 中的 .json 轉換成 cards_rag.jsonl
-# 設計 text 模板，直接從欄位讀取
+# v2：在 v1 模板基礎上改善 benefit_rule 和 global_rule 的 text 可讀性
 import json
 import os
 from pathlib import Path
@@ -31,8 +31,8 @@ def profile_to_chunk(profile: dict, source_file: str) -> dict:
     # 年費
     annual_fee = profile.get("annual_fee")
     if isinstance(annual_fee, dict):
-        primary = annual_fee.get('primary', '')
-        supplementary = annual_fee.get('supplementary')
+        primary = annual_fee.get("primary", "")
+        supplementary = annual_fee.get("supplementary")
         annual_fee_str = f"正卡年費 {primary}"
         if supplementary:
             annual_fee_str += f"，附卡 {supplementary}"
@@ -190,7 +190,21 @@ def scheme_to_chunks(schemes: list, card_name: str, issuer: str, source_file: st
 
 # ==========================================
 # benefit_rule → chunks
+# v2 改動：英文 key 改成中文標籤，text 更自然，embedding 品質會更好
 # ==========================================
+
+# v1 直接用英文 key（include / exclude / conditions）
+# v2 改成中文，讓 embedding 語意更準確
+KEY_LABEL_MAP = {
+    "include": "適用範圍",
+    "exclude": "排除範圍",
+    "conditions": "條件說明",
+    "benefits": "權益內容",
+    "lounges": "貴賓室資訊",
+    "sharing_rule": "共用規則",
+    "how_to_use": "使用方式",
+    "offers": "優惠內容",
+}
 
 def rule_to_chunks(rules: list, card_name: str, issuer: str, source_file: str) -> list:
     chunks = []
@@ -209,17 +223,17 @@ def rule_to_chunks(rules: list, card_name: str, issuer: str, source_file: str) -
         if rule_type:
             text_parts.append(f"{rule_type}：")
 
-        for key in ["include", "exclude", "conditions", "benefits",
-                    "lounges", "sharing_rule", "how_to_use", "offers"]:
+        # v2：用中文標籤取代英文 key
+        for key, label in KEY_LABEL_MAP.items():
             val = r.get(key)
             if val:
                 if isinstance(val, list):
-                    text_parts.append(f"{key} 包含：" + "；".join(map(str, val)) + "。")
+                    text_parts.append(f"{label}：" + "；".join(map(str, val)) + "。")
                 elif isinstance(val, dict):
                     dict_text = "；".join([f"{k}：{v}" for k, v in val.items()])
-                    text_parts.append(f"{key}：{dict_text}。")
+                    text_parts.append(f"{label}：{dict_text}。")
                 else:
-                    text_parts.append(f"{key}：{val}。")
+                    text_parts.append(f"{label}：{val}。")
 
         text = "".join(text_parts)
 
@@ -248,6 +262,7 @@ def rule_to_chunks(rules: list, card_name: str, issuer: str, source_file: str) -
 
 # ==========================================
 # global_rule → chunks
+# v2 改動：conditions 改成 key：value 格式，語意更完整
 # ==========================================
 
 def global_rule_to_chunks(global_rules, card_name: str, issuer: str, source_file: str) -> list:
@@ -282,8 +297,14 @@ def global_rule_to_chunks(global_rules, card_name: str, issuer: str, source_file
         if rule_text:
             text_parts.append(rule_text)
 
+        # v2：conditions 改成 key：value，讓語意完整
+        # v1 只取 value，不知道每個值在說什麼
         if isinstance(conditions, dict) and conditions:
-            cond_lines = [str(v) for v in conditions.values() if v is not None and v != ""]
+            cond_lines = [
+                f"{k}：{v}"
+                for k, v in conditions.items()
+                if v is not None and v != ""
+            ]
             if cond_lines:
                 text_parts.append(" 條件包含：" + "；".join(cond_lines) + "。")
 
@@ -393,7 +414,6 @@ def convert_file(path: str) -> list:
 
     profile = data.get("credit_card_profile")
     if isinstance(profile, dict):
-        # 如果 profile 裡沒有 card_name，補上外層的
         if not profile.get("card_name"):
             profile["card_name"] = card_name
         if not profile.get("issuer"):
