@@ -136,8 +136,11 @@ def scheme_to_chunks(schemes: list, card_name: str, issuer: str, source_file: st
         # reward_levels
         reward_levels = s.get("reward_levels")
         if isinstance(reward_levels, dict) and reward_levels:
-            lv_text = "、".join([f"{k} {v}" for k, v in reward_levels.items()])
-            text += f" 回饋分級：{lv_text}。"
+            # 過濾掉 None 和空值，只保留有實際數值的分級
+            valid_levels = {k: v for k, v in reward_levels.items() if v is not None and v != ""}
+            if valid_levels:
+                lv_text = "、".join([f"{k} {v}" for k, v in valid_levels.items()])
+                text += f" 回饋分級：{lv_text}。"
 
         # channel_groups 攤平進 text 和 channels_flat
         channel_groups = s.get("channel_groups") or {}
