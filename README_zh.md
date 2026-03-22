@@ -85,8 +85,6 @@ Prompt 包含 13 條輸出規則，重點包含：
 
 完整 Prompt 與 Schema 請見 [`data_collection_prompt.md`](./data_collection_prompt.md)。
 
-範例資料請見 [`credit_card_llm_json/cube_sample.json`](./credit_card_llm_json/cube_sample.json)。
-
 ---
 
 ## 技術選型
