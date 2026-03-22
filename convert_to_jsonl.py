@@ -125,7 +125,8 @@ def scheme_to_chunks(schemes: list, card_name: str, issuer: str, source_file: st
             valid_period_str = valid_period
 
         # 組 text
-        text = f"{scheme_card_name}權益方案「{scheme_name}」：{surface_desc}"
+        # 補充說明這個方案在做什麼
+        text = f"{scheme_card_name}的「{scheme_name}」方案，說明{scheme_name}的回饋與規則：{surface_desc}"
 
         if valid_period_str:
             text += f"（適用期間：{valid_period_str}）"
