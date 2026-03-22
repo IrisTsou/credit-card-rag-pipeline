@@ -1,13 +1,12 @@
 # FAISS 向量搜尋，搭配 BGE-M3 embedding 與 metadata filter
-import json
 from typing import Any
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
 
-INDEX_PATH = "cards_rag_faiss_index"
-BGE_MODEL  = "BAAI/bge-m3"
+INDEX_PATH    = "cards_rag_faiss_index"
+BGE_MODEL     = "BAAI/bge-m3"
 DEFAULT_TOP_K = 5
 
 # ==========================================
@@ -35,17 +34,16 @@ def load_index() -> None:
     global _faiss_db
     if _faiss_db is not None:
         return
-
     try:
         _faiss_db = FAISS.load_local(
             folder_path=INDEX_PATH,
             embeddings=_get_embeddings(),
             allow_dangerous_deserialization=True,
         )
-        print(f"FAISS 索引載入完成：{INDEX_PATH}")
+        print(f"✅ FAISS 索引載入完成：{INDEX_PATH}")
     except Exception as e:
         print(f"❌ 載入 FAISS 索引失敗：{e}")
-        print(f"請先執行 build_index.py 建立索引")
+        print("請先執行 build_index.py 建立索引")
         _faiss_db = None
 
 
@@ -63,10 +61,16 @@ def search_chunks(
     """
     語意搜尋 + metadata filter，回傳整理好的字串供 LLM 使用。
 
+    搜尋策略：
+    - card_name 使用 post-filter 包含比對：
+        亞洲萬里通聯名卡有多個子卡等級（世界卡、鈦商卡、白金卡、里享卡），
+        FAISS 完全比對會過濾掉子卡 chunk，因此改用包含比對（in）來處理。
+    - doc_type / scheme_name 使用 FAISS 內建完全比對 filter。
+
     Args:
         query:       使用者問題
         top_k:       回傳筆數
-        card_name:   只搜特定卡片，例如 "國泰CUBE卡"
+        card_name:   只搜特定卡片，例如 "國泰CUBE卡" 或 "國泰亞洲萬里通聯名卡"
         doc_type:    只搜特定文件類型，例如 "benefit_scheme"
         scheme_name: 只搜特定方案，例如 "玩數位"
 
@@ -78,29 +82,41 @@ def search_chunks(
     if _faiss_db is None:
         return "❌ 索引未載入，請先執行 build_index.py"
 
-    # 建立 filter dict（只加有值的條件）
-    metadata_filter: dict[str, Any] = {}
-    if card_name:
-        metadata_filter["card_name"] = card_name.strip()
+    # --- Step 1: 決定 FAISS 內建 filter（doc_type / scheme_name）---
+    faiss_filter: dict[str, Any] = {}
     if doc_type:
-        metadata_filter["doc_type"] = doc_type.strip()
+        faiss_filter["doc_type"] = doc_type.strip()
     if scheme_name:
-        metadata_filter["scheme_name"] = scheme_name.strip()
+        faiss_filter["scheme_name"] = scheme_name.strip()
 
-    # 第一次搜尋（帶 filter）
+    # --- Step 2: 執行搜尋 ---
     try:
-        results = _faiss_db.similarity_search(
-            query,
-            k=top_k,
-            filter=metadata_filter if metadata_filter else None,
-        )
+        if card_name:
+            # card_name 用 post-filter 包含比對
+            # 先撈 top_k * 3 筆，過濾後才能確保有足夠的結果
+            candidates = _faiss_db.similarity_search(
+                query,
+                k=top_k * 3,
+                filter=faiss_filter if faiss_filter else None,
+            )
+            results = [
+                r for r in candidates
+                if card_name.strip() in r.metadata.get("card_name", "")
+            ][:top_k]
+        else:
+            # 沒有指定卡片，直接用 FAISS filter 搜尋
+            results = _faiss_db.similarity_search(
+                query,
+                k=top_k,
+                filter=faiss_filter if faiss_filter else None,
+            )
     except Exception as e:
         print(f"❌ FAISS 搜尋失敗：{e}")
         return "❌ 搜尋發生錯誤"
 
-    # Fallback：有 filter 但沒有結果 → 放寬條件再搜一次
-    if not results and metadata_filter:
-        print(f"⚠️  filter {metadata_filter} 無結果，放寬條件重新搜尋")
+    # --- Step 3: Fallback（有條件但沒結果 → 放寬再搜一次）---
+    if not results and (card_name or faiss_filter):
+        print(f"⚠️  條件 card_name={card_name}, filter={faiss_filter} 無結果，放寬條件重新搜尋")
         try:
             results = _faiss_db.similarity_search(query, k=top_k)
         except Exception as e:
@@ -110,28 +126,26 @@ def search_chunks(
     if not results:
         return "查無相關資料，請嘗試更換關鍵字。"
 
-    # 整理成 Markdown 格式給 LLM 讀
     return _format_results(results)
 
+
+# ==========================================
+# 格式化輸出
+# ==========================================
 
 def _format_results(results) -> str:
     """把 FAISS 搜尋結果整理成 LLM 容易讀的 Markdown 格式"""
     chunks = []
 
     for i, doc in enumerate(results, 1):
-        meta = doc.metadata
-        card    = meta.get("card_name", "未知卡片")
-        dtype   = meta.get("doc_type", "")
-        scheme  = meta.get("scheme_name", "")
-        period  = meta.get("valid_period", "")
+        meta   = doc.metadata
+        card   = meta.get("card_name", "未知卡片")
+        dtype  = meta.get("doc_type", "")
+        scheme = meta.get("scheme_name", "")
+        period = meta.get("valid_period", "")
 
-        # 標題：卡片名稱 + 方案名稱（如果有）
-        if scheme:
-            title = f"{card} - {scheme} ({dtype})"
-        else:
-            title = f"{card} ({dtype})"
+        title = f"{card} - {scheme} ({dtype})" if scheme else f"{card} ({dtype})"
 
-        # 組裝單個 chunk
         lines = [f"### 資料來源 {i}：{title}"]
         if period:
             lines.append(f"- 適用期間：{period}")
@@ -153,7 +167,7 @@ if __name__ == "__main__":
         ("CUBE卡玩數位方案有哪些通路？", {"card_name": "國泰CUBE卡", "doc_type": "benefit_scheme"}),
         ("蝦皮聯名卡年費多少？",          {"card_name": "國泰蝦皮購物聯名卡"}),
         ("世界卡機場接送資格？",           {"card_name": "國泰世界卡"}),
-        ("亞洲萬里通卡如何累積里程？",     {}),
+        ("亞洲萬里通卡如何累積里程？",     {"card_name": "國泰亞洲萬里通聯名卡"}),
         ("Netflix 有沒有回饋？",           {}),
     ]
 
@@ -162,4 +176,4 @@ if __name__ == "__main__":
         print(f"Filter：{filters}")
         result = search_chunks(query, top_k=3, **filters)
         print(result[:400])
-        print("\n" + "="*60 + "\n")
+        print("\n" + "=" * 60 + "\n")
