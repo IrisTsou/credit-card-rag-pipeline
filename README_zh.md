@@ -134,7 +134,7 @@ credit-card-rag-pipeline/
 ├── evaluate.py                 # Recall@k 評估（30 個測試案例）
 ├── requirements.txt
 └── credit_card_llm_json/
-    └── cube_sample.json        # 範例資料（完整資料不上傳）
+    └── cube.json        # （資料有著作權疑慮故不上傳）
 ```
 
 ---
