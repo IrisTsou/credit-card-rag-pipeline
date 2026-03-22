@@ -88,7 +88,6 @@ The prompt enforces 13 output rules including:
 
 See [`data_collection_prompt.md`](./data_collection_prompt.md) for the full prompt and schema.
 
-A sample output is provided in [`credit_card_llm_json/cube_sample.json`](./credit_card_llm_json/cube_sample.json).
 
 ---
 
@@ -139,7 +138,7 @@ credit-card-rag-pipeline/
 ├── evaluate.py                 # Recall@k evaluation (30 test cases)
 ├── requirements.txt
 └── credit_card_llm_json/
-    └── cube_sample.json        # Sample data (full data not included)
+    └── cube.json        # (full data has copyright issue, so not uploaded)
 ```
 
 ---
