@@ -6,6 +6,8 @@ A retrieval-augmented generation (RAG) pipeline built for a multi-agent credit c
 
 Built as part of a team project for Cathay United Bank's credit card Q&A system. My contribution covers the full pipeline from raw data structuring to semantic search evaluation.
 
+[Project Introduction Slides](https://canva.link/bvd00gs63l21iyv)
+
 ---
 
 ## What I Built
